@@ -1,0 +1,7 @@
+openai>=1.50.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+pillow>=10.0.0
+rich>=13.0.0
+fastapi>=0.115.0
+uvicorn>=0.30.0

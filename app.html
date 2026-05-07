@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaceRecall · 民间寻人辅助</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f5f7;
+  --panel: #fff;
+  --border: #e4e4e7;
+  --accent: #2563eb;
+  --accent-h: #1d4ed8;
+  --text: #111827;
+  --sub: #6b7280;
+  --danger: #dc2626;
+  --warn-bg: #fef9c3;
+  --warn-text: #854d0e;
+  --success-bg: #f0fdf4;
+  --success-text: #166534;
+  --radius: 12px;
+  --shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+/* ── Header ── */
+header { display:flex; align-items:center; gap:10px; padding:11px 18px; background:var(--panel); border-bottom:1px solid var(--border); flex-shrink:0; }
+header h1 { font-size:15px; font-weight:600; }
+.header-sub { font-size:11px; color:var(--sub); }
+.header-actions { margin-left:auto; display:flex; gap:8px; }
+.btn-ghost { padding:5px 12px; border:1px solid var(--border); border-radius:7px; font-size:12px; cursor:pointer; background:var(--panel); color:var(--text); }
+.btn-ghost:hover { background:#f3f4f6; }
+.btn-accent { padding:5px 12px; border:none; border-radius:7px; font-size:12px; cursor:pointer; background:var(--accent); color:#fff; }
+.btn-accent:hover { background:var(--accent-h); }
+
+/* ── Overlay panels ── */
+.overlay { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.35); }
+.overlay-card { background:var(--panel); border-radius:var(--radius); box-shadow:0 8px 32px rgba(0,0,0,.15); width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; }
+.overlay-head { padding:18px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.overlay-head h2 { font-size:16px; }
+.close-btn { background:none; border:none; font-size:20px; cursor:pointer; color:var(--sub); padding:0 4px; line-height:1; }
+.overlay-body { overflow-y:auto; padding:16px 20px; flex:1; }
+
+/* ── Start screen ── */
+#start-screen { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:var(--bg); z-index:20; }
+.start-card { background:var(--panel); border-radius:var(--radius); padding:36px 44px; width:460px; box-shadow:var(--shadow); }
+.start-card h2 { font-size:20px; margin-bottom:4px; }
+.start-card p { font-size:13px; color:var(--sub); margin-bottom:24px; line-height:1.7; }
+.start-input { width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-size:14px; outline:none; margin-bottom:10px; }
+.start-input:focus { border-color:var(--accent); }
+.btn-primary { width:100%; padding:10px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; }
+.btn-primary:hover:not(:disabled) { background:var(--accent-h); }
+.btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+.start-divider { display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--sub); font-size:12px; }
+.start-divider::before, .start-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+.btn-outline { width:100%; padding:9px; border:1px solid var(--border); border-radius:8px; background:var(--panel); color:var(--text); font-size:14px; cursor:pointer; }
+.btn-outline:hover { background:#f3f4f6; }
+
+/* ── History cards ── */
+.history-card { display:flex; gap:12px; padding:12px; border:1px solid var(--border); border-radius:9px; cursor:pointer; margin-bottom:10px; transition:border-color .15s; }
+.history-card:hover { border-color:var(--accent); }
+.history-thumbs { display:flex; gap:3px; flex-shrink:0; }
+.history-thumb { width:48px; height:48px; object-fit:cover; border-radius:6px; background:#eee; }
+.history-thumb-empty { width:48px; height:48px; border-radius:6px; background:#f3f4f6; display:flex; align-items:center; justify-content:center; color:#d1d5db; font-size:18px; }
+.history-meta h3 { font-size:13px; font-weight:500; }
+.history-meta p { font-size:11px; color:var(--sub); margin-top:3px; }
+.history-badge { display:inline-block; font-size:10px; padding:1px 7px; border-radius:10px; margin-top:5px; }
+.badge-active { background:#dbeafe; color:#1d4ed8; }
+.badge-converged { background:#dcfce7; color:#15803d; }
+.badge-abandoned { background:#f3f4f6; color:#6b7280; }
+
+/* ── Main layout ── */
+main { display:flex; flex:1; overflow:hidden; }
+
+/* ── Chat (left) ── */
+#chat-panel { display:flex; flex-direction:column; width:40%; border-right:1px solid var(--border); background:var(--panel); min-width:320px; }
+#messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+.msg { max-width:82%; padding:9px 13px; border-radius:13px; font-size:13.5px; line-height:1.6; animation:fadeIn .18s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1} }
+.msg-ai { align-self:flex-start; background:#f0f0f0; border-bottom-left-radius:4px; }
+.msg-user { align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px; }
+.msg-system { align-self:center; background:var(--warn-bg); color:var(--warn-text); font-size:11.5px; padding:5px 11px; border-radius:20px; }
+.msg-conflict { align-self:flex-start; background:#fef2f2; color:var(--danger); border-left:3px solid var(--danger); border-radius:8px; font-size:12.5px; padding:8px 12px; max-width:90%; }
+
+.fill-bar-wrap { padding:0 16px 8px; flex-shrink:0; }
+.fill-label { font-size:11px; color:var(--sub); margin-bottom:4px; }
+.fill-bar { height:3px; background:#e5e7eb; border-radius:2px; overflow:hidden; }
+.fill-bar-inner { height:100%; background:var(--accent); transition:width .4s; }
+
+#input-area { display:flex; gap:7px; padding:12px 16px; border-top:1px solid var(--border); flex-shrink:0; }
+#user-input { flex:1; padding:9px 13px; border:1px solid var(--border); border-radius:8px; font-size:13.5px; outline:none; resize:none; height:40px; font-family:inherit; }
+#user-input:focus { border-color:var(--accent); }
+#user-input:disabled { background:#f9fafb; }
+#send-btn { padding:0 16px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:13.5px; cursor:pointer; }
+#send-btn:disabled { opacity:.4; cursor:not-allowed; }
+#send-btn:hover:not(:disabled) { background:var(--accent-h); }
+
+/* ── Image panel (right) ── */
+#image-panel { flex:1; display:flex; flex-direction:column; background:var(--bg); overflow:hidden; min-width:0; }
+
+#versions-scroll { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:20px; }
+
+.version-group { background:var(--panel); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow); }
+.version-label { font-size:12px; font-weight:600; color:var(--sub); margin-bottom:10px; text-transform:uppercase; letter-spacing:.03em; }
+.models-row { display:grid; grid-template-columns:repeat(2,minmax(180px,1fr)); gap:8px; }
+.model-slot { display:flex; flex-direction:column; gap:5px; }
+.model-name { font-size:10.5px; color:var(--sub); text-align:center; font-weight:500; }
+.model-img-wrap { aspect-ratio:1; border-radius:8px; overflow:hidden; background:#f3f4f6; display:flex; align-items:center; justify-content:center; position:relative; }
+.model-img-wrap img { width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in; }
+.model-placeholder { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+.model-spinner { width:22px; height:22px; border:2.5px solid #e5e7eb; border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.model-pending-txt { font-size:10px; color:var(--sub); }
+.model-error-txt { font-size:10px; color:var(--danger); text-align:center; padding:4px; }
+
+/* ── Image selection ── */
+.select-btn { width:100%; margin-top:4px; padding:4px 0; font-size:11px; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--sub); cursor:pointer; transition:all .15s; }
+.select-btn:hover { border-color:var(--accent); color:var(--accent); }
+.select-btn.selected { background:var(--accent); color:#fff; border-color:var(--accent); }
+.model-img-wrap.selected-frame { outline:3px solid var(--accent); outline-offset:2px; }
+.ref-hint { font-size:11.5px; color:var(--accent); background:#eff6ff; padding:5px 10px; border-radius:6px; margin-bottom:7px; display:none; }
+
+/* ── Empty state ── */
+.empty-stage { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; color:var(--sub); }
+.empty-stage .icon { font-size:44px; opacity:.25; }
+.empty-stage p { font-size:13px; text-align:center; line-height:1.6; }
+
+/* ── Feedback ── */
+#feedback-area { padding:12px 16px; border-top:1px solid var(--border); background:var(--panel); flex-shrink:0; display:none; }
+#feedback-area h3 { font-size:11px; color:var(--sub); margin-bottom:7px; font-weight:500; }
+#feedback-input { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; resize:none; height:56px; outline:none; margin-bottom:7px; }
+#feedback-input:focus { border-color:var(--accent); }
+.feedback-btns { display:flex; gap:7px; flex-wrap:wrap; }
+#feedback-btn { flex:1 1 100%; padding:7px; background:var(--accent); color:#fff; border:none; border-radius:7px; font-size:13px; cursor:pointer; }
+#feedback-btn:hover:not(:disabled) { background:var(--accent-h); }
+#regen-btn, #realistic-btn { flex:1; padding:7px; background:var(--panel); color:var(--text); border:1px dashed var(--border); border-radius:7px; font-size:12.5px; cursor:pointer; }
+#regen-btn:hover:not(:disabled), #realistic-btn:hover:not(:disabled) { background:#f3f4f6; border-color:var(--accent); color:var(--accent); }
+#converge-btn { flex:1; padding:7px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:7px; font-size:13px; cursor:pointer; }
+#converge-btn:hover:not(:disabled) { background:#f3f4f6; }
+#feedback-btn:disabled, #converge-btn:disabled, #regen-btn:disabled, #realistic-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ── Settings form ── */
+.settings-section-label { font-size:11px; font-weight:700; color:var(--sub); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+.settings-form { display:flex; flex-direction:column; gap:10px; }
+.settings-field { display:flex; flex-direction:column; gap:4px; }
+.settings-field label { font-size:11.5px; font-weight:600; color:var(--sub); }
+.settings-field input, .model-input { padding:8px 11px; border:1px solid var(--border); border-radius:7px; font-size:13px; font-family:monospace; outline:none; }
+.settings-field input:focus, .model-input:focus { border-color:var(--accent); }
+.settings-model-row { display:grid; grid-template-columns:110px 1fr 44px auto; align-items:center; gap:7px; }
+.model-row-label { font-size:12px; color:var(--sub); white-space:nowrap; }
+.test-btn { padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:11px; cursor:pointer; background:var(--panel); white-space:nowrap; }
+.test-btn:hover { border-color:var(--accent); color:var(--accent); }
+.test-status { font-size:11px; min-width:90px; }
+/* ── Witness edit ── */
+.witness-wrap { display:flex; align-items:flex-start; justify-content:flex-end; gap:5px; align-self:flex-end; max-width:90%; }
+.edit-btn { flex-shrink:0; opacity:0; background:none; border:none; cursor:pointer; font-size:11px; padding:3px 5px; color:var(--sub); border-radius:4px; transition:opacity .15s; margin-top:4px; line-height:1; }
+.witness-wrap:hover .edit-btn { opacity:1; }
+.edit-btn:hover { background:#f3f4f6; }
+.edit-area { display:flex; flex-direction:column; gap:5px; align-self:flex-end; max-width:82%; }
+.edit-textarea { padding:8px 12px; border:1.5px solid var(--accent); border-radius:13px 13px 4px 13px; font-size:13.5px; font-family:inherit; resize:vertical; min-height:38px; outline:none; }
+.edit-actions { display:flex; gap:5px; justify-content:flex-end; }
+.edit-confirm { padding:4px 12px; background:var(--accent); color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer; }
+.edit-confirm:disabled { opacity:.5; cursor:not-allowed; }
+.edit-cancel { padding:4px 10px; background:var(--panel); border:1px solid var(--border); border-radius:6px; font-size:12px; cursor:pointer; }
+/* ── Model retry ── */
+.model-error-wrap { display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px; }
+.retry-btn { padding:3px 12px; border:1px solid var(--border); border-radius:5px; font-size:10px; background:var(--panel); cursor:pointer; }
+.retry-btn:hover { border-color:var(--accent); color:var(--accent); }
+/* ── Lightbox ── */
+#lightbox { display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,.85); align-items:center; justify-content:center; }
+#lightbox.open { display:flex; }
+#lightbox img { max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5); }
+#lightbox-close { position:fixed; top:20px; right:24px; color:#fff; font-size:28px; cursor:pointer; background:none; border:none; opacity:.8; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>FaceRecall</h1>
+    <div class="header-sub">民间寻人 · 记忆辅助画像</div>
+  </div>
+  <div class="header-actions" id="session-actions">
+    <button class="btn-ghost" onclick="showSettings()">⚙️ 设置</button>
+    <button class="btn-ghost" id="btn-history" onclick="showHistory()" style="display:none">历史会话</button>
+    <button class="btn-accent" id="btn-new-session" onclick="confirmNewSession()" style="display:none">+ 新建会话</button>
+  </div>
+</header>
+
+<!-- Start Screen -->
+<div id="start-screen">
+  <div class="start-card">
+    <h2>新建画像任务</h2>
+    <p>输入任务名称,AI 将引导目击者一步步还原一张面孔。<br>完成问答后自动生成 2 张候选画像。</p>
+    <input class="start-input" type="text" id="case-name-input" placeholder="例：朋友案例 001" maxlength="40">
+    <button class="btn-primary" id="start-btn" onclick="startCase()">开始</button>
+    <div class="start-divider">或者</div>
+    <button class="btn-outline" onclick="showHistory()">查看历史会话</button>
+  </div>
+</div>
+
+<!-- Settings Overlay -->
+<div class="overlay" id="settings-overlay" style="display:none" onclick="if(event.target===this)closeSettings()">
+  <div class="overlay-card" style="width:560px;max-height:88vh">
+    <div class="overlay-head">
+      <h2>API 设置</h2>
+      <button class="close-btn" onclick="closeSettings()">×</button>
+    </div>
+    <div class="overlay-body">
+
+      <!-- Connection -->
+      <div class="settings-section-label">API 连接</div>
+      <div class="settings-form" style="margin-bottom:14px">
+        <div class="settings-field">
+          <label>Base URL</label>
+          <input id="s-api-base" type="text" placeholder="https://api.openai.com/v1（留空走官方）">
+        </div>
+        <div class="settings-field">
+          <label>API Key</label>
+          <input id="s-api-key" type="text" placeholder="sk-...">
+        </div>
+        <button class="btn-ghost" style="align-self:flex-start;font-size:12px" onclick="fetchModelList()">
+          拉取模型列表
+        </button>
+        <div id="s-list-status" style="font-size:11px;color:var(--sub);min-height:14px"></div>
+      </div>
+
+      <!-- Models -->
+      <div class="settings-section-label">模型配置</div>
+      <datalist id="model-list-dl"></datalist>
+      <div class="settings-form">
+        <div class="settings-model-row">
+          <span class="model-row-label">LLM（问答引导）</span>
+          <input id="s-llm-model" type="text" list="model-list-dl" placeholder="gpt-4o" class="model-input">
+          <button class="test-btn" onclick="testModel('s-llm-model','llm','test-llm')">测试</button>
+          <span id="test-llm" class="test-status"></span>
+        </div>
+        <div class="settings-model-row">
+          <span class="model-row-label">图像模型</span>
+          <input id="s-img-model" type="text" list="model-list-dl" placeholder="gpt-image-2-all" class="model-input">
+          <button class="test-btn" onclick="testModel('s-img-model','image','test-img')">测试</button>
+          <span id="test-img" class="test-status"></span>
+        </div>
+        <div style="font-size:11px;color:var(--sub);line-height:1.6">
+          当前只使用这一个图像模型，每次生成 2 张候选画像。
+        </div>
+      </div>
+
+      <div id="settings-msg" style="font-size:12px;margin-top:12px;min-height:16px"></div>
+    </div>
+    <div style="padding:12px 20px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border)">
+      <button class="btn-ghost" onclick="closeSettings()">取消</button>
+      <button class="btn-accent" id="settings-save-btn" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Overlay -->
+<div class="overlay" id="history-overlay" style="display:none" onclick="if(event.target===this)closeHistory()">
+  <div class="overlay-card">
+    <div class="overlay-head">
+      <h2>历史会话</h2>
+      <button class="close-btn" onclick="closeHistory()">×</button>
+    </div>
+    <div class="overlay-body" id="history-list">
+      <p style="color:var(--sub);font-size:13px">加载中…</p>
+    </div>
+  </div>
+</div>
+
+<!-- Disclaimer Overlay -->
+<div id="disclaimer-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:32px 36px;max-width:480px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.2);">
+    <h2 style="font-size:18px;margin-bottom:16px;">使用前请阅读</h2>
+    <div style="font-size:13px;line-height:1.8;color:#374151;margin-bottom:20px;">
+      <p>本工具用于<strong>民间寻人辅助</strong>，帮助目击者在 AI 引导下还原面孔记忆。</p>
+      <br>
+      <p style="color:#854d0e;background:#fef9c3;padding:10px 12px;border-radius:7px;line-height:1.7;">
+        ⚠️ AI 生成的画像<strong>不构成司法证据</strong>，不替代专业法医画像师。请遵守当地法律法规，仅限合法用途。
+      </p>
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer;margin-bottom:20px;line-height:1.5;">
+      <input type="checkbox" id="disclaimer-check" style="margin-top:2px;flex-shrink:0;" onchange="$('disclaimer-ok-btn').disabled=!this.checked;$('disclaimer-ok-btn').style.opacity=this.checked?'1':'.4'">
+      我已阅读并理解上述内容，承诺合法使用本工具
+    </label>
+    <button id="disclaimer-ok-btn" disabled onclick="acceptDisclaimer()"
+      style="width:100%;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;opacity:.4;transition:opacity .15s;">
+      进入应用
+    </button>
+    <p style="font-size:10px;color:#9ca3af;text-align:center;margin-top:12px;">本工具不收集任何数据，所有会话均本地存储。</p>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<main>
+  <!-- Chat -->
+  <div id="chat-panel">
+    <div id="messages"></div>
+    <div class="fill-bar-wrap">
+      <div class="fill-label">特征填充率 <span id="fill-pct">0%</span></div>
+      <div class="fill-bar"><div class="fill-bar-inner" id="fill-bar-inner" style="width:0%"></div></div>
+    </div>
+    <div id="input-area">
+      <textarea id="user-input" placeholder="输入回答…" disabled
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnswer();}"></textarea>
+      <button id="send-btn" disabled onclick="sendAnswer()">发送</button>
+    </div>
+  </div>
+
+  <!-- Images -->
+  <div id="image-panel">
+    <div id="versions-scroll">
+      <div class="empty-stage" id="empty-stage">
+        <div class="icon">🖼️</div>
+        <p>完成问答后，图像模型将<br>生成 2 张画像并显示在这里</p>
+      </div>
+    </div>
+    <div id="feedback-area">
+      <h3>给反馈，继续修改</h3>
+      <div class="ref-hint" id="ref-hint">📌 基准图：<span id="ref-hint-label"></span></div>
+      <textarea id="feedback-input" placeholder="先点下方“选为基准”选一张图，再写反馈…"></textarea>
+      <div class="feedback-btns">
+        <button id="feedback-btn" onclick="submitFeedback()">修改画像</button>
+        <button id="realistic-btn" onclick="generateRealistic()" title="把选中的简笔图转成真人画像">生成真人画像</button>
+        <button id="regen-btn" onclick="regenerate()" title="清空旧样张，重新抽 2 张初版候选">🔄 重新生成（测试用）</button>
+        <button id="converge-btn" onclick="converge()">✓ 已满意，完成</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── Disclaimer ───────────────────────────────────────────────────────────────
+
+function checkDisclaimer() {
+  if(localStorage.getItem('fr_disclaimer_ack') !== '1') {
+    $('disclaimer-overlay').style.display = 'flex';
+  }
+}
+function acceptDisclaimer() {
+  localStorage.setItem('fr_disclaimer_ack', '1');
+  $('disclaimer-overlay').style.display = 'none';
+}
+window.addEventListener('load', checkDisclaimer);
+
+// ── Export ───────────────────────────────────────────────────────────────────
+
+async function exportCase() {
+  try {
+    const data = await get(`/case/${caseId}/history`);
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `facerecall-${caseId.slice(0,8)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('导出失败：' + e.message);
+  }
+}
+
+let caseId = null;
+let pollTimer = null;
+let currentVersion = 0;
+let selectedRef = null;  // { url, label } — 用户选中的基准图
+let currentImageModel = 'gpt-image-2-all';
+
+const $ = id => document.getElementById(id);
+
+// ── Start ────────────────────────────────────────────────────────────────────
+
+async function startCase() {
+  const title = $('case-name-input').value.trim() || '未命名';
+  $('start-btn').disabled = true;
+  $('start-btn').textContent = '初始化中…';
+  try {
+    const res = await post('/case/new', { title });
+    caseId = res.case_id;
+    $('start-screen').style.display = 'none';
+    $('btn-history').style.display = '';
+    $('btn-new-session').style.display = '';
+    updateFill(res.fill_ratio);
+    handleGuiderResult(res);
+    enableInput();
+  } catch(e) {
+    $('start-btn').disabled = false;
+    $('start-btn').textContent = '开始';
+    addMsg('system', '启动失败：' + e.message);
+  }
+}
+
+$('case-name-input').addEventListener('keydown', e => { if(e.key==='Enter') startCase(); });
+
+function confirmNewSession() {
+  if(confirm('新建会话将离开当前会话（当前进度已自动保存）。确认？')) {
+    location.reload();
+  }
+}
+
+// ── Send answer ──────────────────────────────────────────────────────────────
+
+async function sendAnswer() {
+  const answer = $('user-input').value.trim();
+  if(!answer) return;
+  disableInput();
+  const wrap = addWitnessMsg(answer, null);  // seq unknown until response
+  $('user-input').value = '';
+  try {
+    const res = await post(`/case/${caseId}/answer`, { answer });
+    // Attach seq now that server confirmed the turn
+    if(res.witness_seq != null) {
+      const btn = wrap.querySelector('.edit-btn');
+      if(btn) btn.dataset.seq = res.witness_seq;
+    }
+    updateFill(res.fill_ratio);
+    if(res.status === 'generating') {
+      addMsg('ai', res.message || '正在生成初版画像…');
+      startPolling();
+      return;
+    }
+    if(res.conflicts && res.conflicts.length)
+      res.conflicts.forEach(c => addMsg('conflict', `⚠️ 冲突·${c.field}：${c.question}`));
+    if(res.anchor_request)
+      addMsg('system', `建议参考【${res.anchor_request.category}】类图片辅助描述`);
+    if(res.question) addMsg('ai', res.question);
+    enableInput();
+  } catch(e) {
+    addMsg('system', '请求失败：' + e.message);
+    enableInput();
+  }
+}
+
+// ── Polling ──────────────────────────────────────────────────────────────────
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(doPoll, 3000);
+}
+function stopPolling() { if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+
+async function doPoll() {
+  try {
+    const res = await get(`/case/${caseId}/poll`);
+    if(res.version) {
+      currentVersion = res.version;
+      updateVersionGroup(res.version, res.results);
+    }
+    if(res.settled) {
+      stopPolling();
+      const isRealistic = res.results.some(r => r.model === 'realistic-photo');
+      selectedRef = null;
+      $('empty-stage') && ($('empty-stage').style.display = 'none');
+      if(!isRealistic) enableImageSelection(res.version, res.results);
+      $('feedback-area').style.display = 'block';
+      setFeedbackEnabled(true);
+      updateRefHint();
+      const ready = res.results.filter(r => r.status === 'ready').length;
+      const errors = res.results.filter(r => r.status === 'error');
+      let msg = isRealistic ? `${ready} 张真人画像完成生成。` : `${ready} 张图片完成生成。`;
+      if(errors.length) msg += ` ${errors.length} 张超时/失败（可单独重试）。`;
+      msg += isRealistic
+        ? (ready > 0 ? ' 满意可以点完成。' : ' 请重新选择简笔图再试。')
+        : (ready > 0 ? ' 请点一张图"选为基准"，再写反馈。' : ' 所有模型均失败，请点「🔄 重新生成」。');
+      addMsg('ai', msg);
+    }
+  } catch(e) { /* transient */ }
+}
+
+// ── Version groups ───────────────────────────────────────────────────────────
+
+function versionLabel(version, isRealistic) {
+  if(isRealistic) return `真人画像 · v${version}`;
+  return version === 1 ? 'v1 · 初版' : `v${version} · 第 ${version-1} 次修改`;
+}
+
+function addVersionGroup(version, loading=false, models=[currentImageModel]) {
+  $('empty-stage') && ($('empty-stage').style.display = 'none');
+  const g = document.createElement('div');
+  g.className = 'version-group';
+  g.id = `vg-${version}`;
+  const modelNames = models.length ? models : [currentImageModel];
+  const isRealistic = modelNames.some(m => m === 'realistic-photo');
+  const label = versionLabel(version, isRealistic);
+  g.innerHTML = `<div class="version-label">${label}</div>
+    <div class="models-row" id="mr-${version}">
+      ${modelNames.map(m => `
+        <div class="model-slot">
+          <div class="model-name">${labelOf(m)}</div>
+          <div class="model-img-wrap" id="slot-${version}-${safeId(m)}">
+            ${loading ? `<div class="model-placeholder"><div class="model-spinner"></div><div class="model-pending-txt">生成中…</div></div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  $('versions-scroll').appendChild(g);
+  $('versions-scroll').scrollTop = $('versions-scroll').scrollHeight;
+}
+
+function updateVersionGroup(version, results) {
+  if(!document.getElementById(`vg-${version}`)) addVersionGroup(version, true, results.map(r => r.model));
+  results.forEach(r => {
+    const slot = document.getElementById(`slot-${version}-${safeId(r.model)}`);
+    if(!slot) return;
+    if(r.status === 'ready' && r.image_url) {
+      if(!slot.querySelector('img')) {
+        slot.innerHTML = `<img src="${r.image_url}?t=${Date.now()}" loading="lazy" onclick="openLightbox('${r.image_url}')">`;
+      }
+    } else if(r.status === 'error') {
+      const isTimeout = (r.error||'').toLowerCase().includes('timeout') || (r.error||'').includes('超时');
+      const label = isTimeout ? '超时' : '失败';
+      slot.innerHTML = `<div class="model-error-wrap">
+        <div class="model-error-txt">❌ ${label}</div>
+        <button class="retry-btn" onclick="retryModel('${r.model}',${version})">重试</button>
+      </div>`;
+    } else if(r.status === 'pending') {
+      if(!slot.querySelector('.model-spinner'))
+        slot.innerHTML = `<div class="model-placeholder"><div class="model-spinner"></div><div class="model-pending-txt">生成中…</div></div>`;
+    }
+  });
+}
+
+function enableImageSelection(version, results) {
+  results.forEach(r => {
+    if(r.status !== 'ready' || !r.image_url) return;
+    const modelSlot = document.getElementById(`slot-${version}-${safeId(r.model)}`);
+    if(!modelSlot) return;
+    // find the parent .model-slot div to append button
+    const parentSlot = modelSlot.closest('.model-slot');
+    if(!parentSlot || parentSlot.querySelector('.select-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'select-btn';
+    btn.textContent = '选为基准';
+    btn.dataset.url = r.image_url;
+    btn.dataset.label = r.label;
+    btn.dataset.version = version;
+    btn.dataset.model = r.model;
+    btn.onclick = () => selectRef(btn, modelSlot);
+    parentSlot.appendChild(btn);
+  });
+}
+
+function selectRef(btn, imgWrap) {
+  // Clear all previous selections
+  document.querySelectorAll('.select-btn.selected').forEach(b => {
+    b.classList.remove('selected');
+    b.textContent = '选为基准';
+  });
+  document.querySelectorAll('.model-img-wrap.selected-frame').forEach(w => w.classList.remove('selected-frame'));
+  // Apply new selection
+  btn.classList.add('selected');
+  btn.textContent = '✓ 已选';
+  imgWrap.classList.add('selected-frame');
+  const version = parseInt(btn.dataset.version, 10);
+  const isRealistic = btn.dataset.model === 'realistic-photo';
+  selectedRef = { url: btn.dataset.url, label: versionLabel(version, isRealistic) };
+  updateRefHint();
+}
+
+function updateRefHint() {
+  const hint = $('ref-hint');
+  if(selectedRef) {
+    hint.style.display = 'block';
+    $('ref-hint-label').textContent = selectedRef.label;
+    $('feedback-input').placeholder = '描述需要修改的地方…';
+  } else {
+    hint.style.display = 'none';
+    $('feedback-input').placeholder = '先点下方"选为基准"选一张图，再写反馈…';
+  }
+}
+
+function safeId(s) { return s.replace(/[^a-z0-9]/gi,'_'); }
+function labelOf(model) {
+  const [base, slot] = model.split('#');
+  const map = {'gpt-image-2-all':'GPT-Image 2 All','realistic-photo':'真人画像'};
+  const label = map[base] || base;
+  return slot ? `${label} #${slot}` : label;
+}
+
+// ── Feedback ─────────────────────────────────────────────────────────────────
+
+async function submitFeedback() {
+  const feedback = $('feedback-input').value.trim();
+  if(!feedback) { converge(); return; }
+  if(!selectedRef) {
+    addMsg('system', '请先点击一张图的"选为基准"按钮，再提交反馈。');
+    return;
+  }
+  setFeedbackEnabled(false);
+  addMsg('user', `[反馈·基于 ${selectedRef.label}] ${feedback}`);
+  $('feedback-input').value = '';
+  const refUrl = selectedRef.url;
+  selectedRef = null;
+  updateRefHint();
+  try {
+    const res = await post(`/case/${caseId}/feedback`, { feedback, ref_image: refUrl });
+    if(res.status === 'generating') {
+      startPolling();
+    }
+  } catch(e) {
+    addMsg('system', '提交失败：' + e.message);
+    setFeedbackEnabled(true);
+  }
+}
+
+function renderConvergedFooter(finalUrl, headline) {
+  let html = '<div style="padding:12px 16px;background:var(--success-bg);border-top:1px solid var(--border);">';
+  html += `<div style="text-align:center;color:var(--success-text);font-size:13px;font-weight:500;margin-bottom:10px;">${headline}</div>`;
+  html += '<div style="display:flex;gap:7px;">';
+  if(finalUrl) {
+    html += `<a href="${finalUrl}" download="facerecall-final.png" style="flex:1;padding:7px;text-align:center;background:var(--accent);color:#fff;border-radius:7px;font-size:12.5px;text-decoration:none;display:block;">⬇️ 下载最终画像</a>`;
+  }
+  html += `<button onclick="exportCase()" style="flex:1;padding:7px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:7px;font-size:12.5px;cursor:pointer;">📄 导出会话记录</button>`;
+  html += '</div></div>';
+  return html;
+}
+
+async function converge() {
+  setFeedbackEnabled(false);
+  try {
+    const res = await post(`/case/${caseId}/feedback`, { feedback: '', ref_image: selectedRef ? selectedRef.url : null });
+    $('feedback-area').innerHTML = renderConvergedFooter(res.final_image_url, '✅ 画像任务已完成，会话已保存。');
+    addMsg('ai', '画像已确认收敛，会话数据已保存。');
+  } catch(e) {
+    addMsg('system', '保存失败：' + e.message);
+    setFeedbackEnabled(true);
+  }
+}
+
+// ── History ──────────────────────────────────────────────────────────────────
+
+async function showHistory() {
+  $('history-overlay').style.display = 'flex';
+  const list = $('history-list');
+  list.innerHTML = '<p style="color:var(--sub);font-size:13px">加载中…</p>';
+  try {
+    const cases = await get('/cases');
+    if(!cases.length) {
+      list.innerHTML = '<p style="color:var(--sub);font-size:13px">暂无历史会话</p>';
+      return;
+    }
+    list.innerHTML = cases.map(c => `
+      <div class="history-card" onclick="openCase('${c.id}')">
+        <div class="history-thumbs">
+          ${(c.thumbnails.length ? c.thumbnails : []).slice(0,3).map(t =>
+            `<img class="history-thumb" src="${t}" onerror="this.style.display='none'">`
+          ).join('')}
+          ${c.thumbnails.length === 0 ? `<div class="history-thumb-empty">🖼️</div>` : ''}
+        </div>
+        <div class="history-meta">
+          <h3>${esc(c.title)}</h3>
+          <p>${fmtDate(c.created_at)} · ${c.version_count} 个版本</p>
+          <span class="history-badge badge-${c.status}">${statusLabel(c.status)}</span>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = `<p style="color:var(--danger);font-size:13px">加载失败：${e.message}</p>`;
+  }
+}
+
+function closeHistory() { $('history-overlay').style.display = 'none'; }
+
+async function openCase(id) {
+  closeHistory();
+  stopPolling();
+  // Reset chat panel
+  $('messages').innerHTML = '';
+  updateFill(0);
+  // Reset image panel
+  const vs = $('versions-scroll');
+  vs.innerHTML = '';
+  // Reset feedback area (may have been replaced by "completed" div)
+  $('feedback-area').innerHTML = `
+    <h3>给反馈，继续修改</h3>
+    <div class="ref-hint" id="ref-hint">📌 基准图：<span id="ref-hint-label"></span></div>
+    <textarea id="feedback-input" placeholder="先点下方选一张图作为基准，再写反馈…"></textarea>
+    <div class="feedback-btns">
+      <button id="feedback-btn" onclick="submitFeedback()">修改画像</button>
+      <button id="realistic-btn" onclick="generateRealistic()" title="把选中的简笔图转成真人画像">生成真人画像</button>
+      <button id="regen-btn" onclick="regenerate()" title="清空旧样张，重新抽 2 张初版候选">🔄 重新生成（测试用）</button>
+      <button id="converge-btn" onclick="converge()">✓ 已满意，完成</button>
+    </div>`;
+  $('feedback-area').style.display = 'none';
+  selectedRef = null;
+  disableInput();
+
+  try {
+    const data = await get(`/case/${id}/history`);
+    caseId = id;
+    $('start-screen').style.display = 'none';
+    $('btn-history').style.display = '';
+    $('btn-new-session').style.display = '';
+
+    // Replay chat history
+    (data.chat_turns || []).forEach(t => {
+      if(t.role === 'llm') addMsg('ai', t.content);
+      else if(t.role === 'witness') addWitnessMsg(t.content, t.seq);
+    });
+
+    // Rebuild image versions
+    data.versions.forEach(v => {
+      addVersionGroup(v.version, false, v.images.map(img => img.model));
+      v.images.forEach(img => {
+        const slot = document.getElementById(`slot-${v.version}-${safeId(img.model)}`);
+        if(slot && img.image_url)
+          slot.innerHTML = `<img src="${img.image_url}" loading="lazy" onclick="openLightbox('${img.image_url}')">`;
+      });
+      if(!v.images.some(i => i.model === 'realistic-photo'))
+        enableImageSelection(v.version, v.images.map(i => ({...i, status:'ready'})));
+    });
+    currentVersion = data.versions.length;
+
+    if(data.status !== 'active') {
+      $('feedback-area').innerHTML = renderConvergedFooter(data.final_image_url, '✅ 此会话已完成');
+      $('feedback-area').style.display = 'block';
+    } else if(data.stage === 'feedback') {
+      // Has images — show feedback controls
+      $('feedback-area').style.display = 'block';
+      setFeedbackEnabled(true);
+    } else {
+      // Mid-Q&A: let user continue answering
+      if((data.chat_turns || []).length === 0) {
+        addMsg('system', '该会话为空，已切换到此会话。');
+      } else {
+        addMsg('system', '问答未完成，继续回答问题即可。');
+        enableInput();
+      }
+      // Also show regenerate button if Q&A was completed but generation failed
+      const lastLlm = [...(data.chat_turns||[])].reverse().find(t => t.role==='llm');
+      if(lastLlm && (lastLlm.content.includes('正在用 3 个模型') || lastLlm.content.includes('正在生成初版画像'))) {
+        disableInput();
+        $('feedback-area').style.display = 'block';
+        setFeedbackEnabled(true);
+        addMsg('system', '上次生成未完成，可点「🔄 重新生成」重试。');
+      }
+    }
+    addMsg('system', `— 历史会话：${data.title} —`);
+  } catch(e) {
+    addMsg('system', '加载失败：' + e.message);
+  }
+}
+
+// ── Lightbox ─────────────────────────────────────────────────────────────────
+
+function openLightbox(url) {
+  $('lightbox-img').src = url;
+  $('lightbox').classList.add('open');
+}
+function closeLightbox() { $('lightbox').classList.remove('open'); }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeLightbox(); });
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+
+function handleGuiderResult(res) {
+  if(res.conflicts && res.conflicts.length)
+    res.conflicts.forEach(c => addMsg('conflict', `⚠️ ${c.question}`));
+  if(res.anchor_request)
+    addMsg('system', `建议参考【${res.anchor_request.category}】类图片`);
+  if(res.question) addMsg('ai', res.question);
+}
+
+function addMsg(type, text) {
+  const d = document.createElement('div');
+  d.className = type==='ai'?'msg msg-ai':type==='user'?'msg msg-user':type==='conflict'?'msg msg-conflict':'msg msg-system';
+  d.textContent = text;
+  $('messages').appendChild(d);
+  $('messages').scrollTop = $('messages').scrollHeight;
+  return d;
+}
+
+// Witness message with hover-edit button
+function addWitnessMsg(content, seq) {
+  const wrap = document.createElement('div');
+  wrap.className = 'witness-wrap';
+
+  const btn = document.createElement('button');
+  btn.className = 'edit-btn';
+  btn.title = '修改这条回答';
+  btn.textContent = '✏️';
+  if(seq != null) btn.dataset.seq = seq;
+  btn.onclick = () => startEdit(wrap);
+
+  const msg = document.createElement('div');
+  msg.className = 'msg msg-user';
+  msg.textContent = content;
+
+  wrap.appendChild(btn);
+  wrap.appendChild(msg);
+  $('messages').appendChild(wrap);
+  $('messages').scrollTop = $('messages').scrollHeight;
+  return wrap;
+}
+
+function startEdit(wrap) {
+  const btn = wrap.querySelector('.edit-btn');
+  const seq = btn && btn.dataset.seq;
+  const msgEl = wrap.querySelector('.msg-user');
+  const original = msgEl ? msgEl.textContent : '';
+
+  wrap.innerHTML = `
+    <div class="edit-area">
+      <textarea class="edit-textarea"></textarea>
+      <div class="edit-actions">
+        <button class="edit-cancel">取消</button>
+        <button class="edit-confirm">确认修改</button>
+      </div>
+    </div>`;
+
+  const textarea = wrap.querySelector('textarea');
+  const cancelBtn = wrap.querySelector('.edit-cancel');
+  const confirmBtn = wrap.querySelector('.edit-confirm');
+  textarea.value = original;
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+  const restore = (text) => {
+    wrap.innerHTML = '';
+    const newBtn = document.createElement('button');
+    newBtn.className = 'edit-btn';
+    newBtn.title = '修改这条回答';
+    newBtn.textContent = '✏️';
+    if(seq) newBtn.dataset.seq = seq;
+    newBtn.onclick = () => startEdit(wrap);
+    const newMsg = document.createElement('div');
+    newMsg.className = 'msg msg-user';
+    newMsg.textContent = text;
+    wrap.appendChild(newBtn);
+    wrap.appendChild(newMsg);
+  };
+
+  cancelBtn.onclick = () => restore(original);
+
+  confirmBtn.onclick = async () => {
+    const newAnswer = textarea.value.trim();
+    if(!newAnswer) return;
+    if(newAnswer === original) { restore(original); return; }
+    if(!seq || seq === 'null') {
+      addMsg('system', '该消息尚未持久化，无法单独修改。');
+      restore(original);
+      return;
+    }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '修改中…';
+    try {
+      const res = await post(`/case/${caseId}/edit-turn`, {seq: parseInt(seq), new_answer: newAnswer});
+      restore(newAnswer);
+      if(res.fill_ratio != null) updateFill(res.fill_ratio);
+      if(res.status === 'regenerating') {
+        addMsg('system', '✅ 已修改，正在重新生成画像…');
+        setFeedbackEnabled(false);
+        selectedRef = null;
+        updateRefHint();
+        startPolling();
+      } else if(res.question) {
+        addMsg('ai', res.question);
+      }
+    } catch(e) {
+      addMsg('system', '修改失败：' + e.message);
+      restore(original);
+    }
+  };
+}
+
+async function retryModel(model, version) {
+  const slot = document.getElementById(`slot-${version}-${safeId(model)}`);
+  if(slot) slot.innerHTML = `<div class="model-placeholder"><div class="model-spinner"></div><div class="model-pending-txt">重试中…</div></div>`;
+  try {
+    await post(`/case/${caseId}/retry-model`, {model});
+    startPolling();
+  } catch(e) {
+    if(slot) slot.innerHTML = `<div class="model-error-wrap"><div class="model-error-txt">❌ 重试失败</div><button class="retry-btn" onclick="retryModel('${model}',${version})">再试</button></div>`;
+  }
+}
+
+function updateFill(ratio) {
+  if(ratio == null) return;
+  const pct = Math.round(ratio * 100) + '%';
+  $('fill-pct').textContent = pct;
+  $('fill-bar-inner').style.width = pct;
+}
+
+function enableInput() { $('user-input').disabled=false; $('send-btn').disabled=false; $('user-input').focus(); }
+function disableInput() { $('user-input').disabled=true; $('send-btn').disabled=true; }
+function setFeedbackEnabled(on) {
+  $('feedback-btn').disabled = !on;
+  $('converge-btn').disabled = !on;
+  $('feedback-input').disabled = !on;
+  const r = $('regen-btn'); if(r) r.disabled = !on;
+  const real = $('realistic-btn'); if(real) real.disabled = !on;
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+
+async function showSettings() {
+  $('settings-overlay').style.display = 'flex';
+  $('settings-msg').textContent = '';
+  $('s-list-status').textContent = '';
+  $('settings-save-btn').disabled = false;
+    ['test-llm','test-img'].forEach(id => $(id).textContent = '');
+  try {
+    const s = await get('/settings');
+    $('s-api-base').value = s.api_base || '';
+    $('s-api-key').value = s.api_key || '';
+    $('s-llm-model').value = s.llm_model || '';
+    currentImageModel = s.image_model || currentImageModel;
+    $('s-img-model').value = currentImageModel;
+  } catch(e) {
+    $('settings-msg').textContent = '加载失败：' + e.message;
+  }
+}
+
+function closeSettings() { $('settings-overlay').style.display = 'none'; }
+
+async function fetchModelList() {
+  $('s-list-status').textContent = '拉取中…';
+  try {
+    const res = await post('/settings/list-models', {
+      api_base: $('s-api-base').value,
+      api_key: $('s-api-key').value,
+    });
+    const dl = $('model-list-dl');
+    dl.innerHTML = res.models.map(m => `<option value="${esc(m)}">`).join('');
+    $('s-list-status').textContent = `✅ 获取到 ${res.models.length} 个模型`;
+  } catch(e) {
+    $('s-list-status').textContent = '❌ ' + e.message;
+  }
+}
+
+async function testModel(inputId, modelType, statusId) {
+  const model = $(inputId).value.trim();
+  if(!model) { $(statusId).textContent = '请先填写模型名'; return; }
+  $(statusId).textContent = '测试中…';
+  try {
+    const res = await post('/settings/test-model', {
+      api_base: $('s-api-base').value,
+      api_key: $('s-api-key').value,
+      model,
+      model_type: modelType,
+    });
+    $(statusId).textContent = res.info;
+    $(statusId).style.color = res.ok ? 'var(--success-text)' : 'var(--danger)';
+  } catch(e) {
+    $(statusId).textContent = '❌ ' + e.message;
+    $(statusId).style.color = 'var(--danger)';
+  }
+}
+
+async function saveSettings() {
+  $('settings-save-btn').disabled = true;
+  $('settings-msg').textContent = '保存中…';
+  $('settings-msg').style.color = 'var(--text)';
+  try {
+    await post('/settings', {
+      api_base: $('s-api-base').value,
+      api_key: $('s-api-key').value,
+      llm_model: $('s-llm-model').value,
+      image_model: $('s-img-model').value,
+    });
+    currentImageModel = $('s-img-model').value.trim() || currentImageModel;
+    $('settings-msg').style.color = 'var(--success-text)';
+    $('settings-msg').textContent = '✅ 已保存，立即生效';
+    setTimeout(closeSettings, 1200);
+  } catch(e) {
+    $('settings-msg').style.color = 'var(--danger)';
+    $('settings-msg').textContent = '保存失败：' + e.message;
+    $('settings-save-btn').disabled = false;
+  }
+}
+
+async function generateRealistic() {
+  if(!selectedRef) {
+    addMsg('system', '请先选中一张简笔图，再生成真人画像。');
+    return;
+  }
+  setFeedbackEnabled(false);
+  addMsg('system', `正在基于 ${selectedRef.label} 生成真人画像…`);
+  try {
+    const res = await post(`/case/${caseId}/realistic`, { ref_image: selectedRef.url });
+    if(res.status === 'generating') startPolling();
+  } catch(e) {
+    addMsg('system', '真人画像生成失败：' + e.message);
+    setFeedbackEnabled(true);
+  }
+}
+
+async function regenerate() {
+  setFeedbackEnabled(false);
+  selectedRef = null;
+  updateRefHint();
+  addMsg('system', '🔄 已清空旧样张，正在重新抽 2 张候选图…');
+  try {
+    const res = await post(`/case/${caseId}/regenerate`, {});
+    if(res.status === 'generating') {
+      currentVersion = 0;
+      $('versions-scroll').innerHTML = `
+        <div class="empty-stage" id="empty-stage">
+          <div class="icon">🖼️</div>
+          <p>正在重新生成 2 张候选画像…</p>
+        </div>`;
+      $('feedback-area').style.display = 'none';
+      startPolling();
+    }
+  } catch(e) {
+    addMsg('system', '重新生成失败：' + e.message);
+    setFeedbackEnabled(true);
+  }
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function statusLabel(s) { return {active:'进行中',converged:'已完成',abandoned:'已放弃'}[s]||s; }
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function post(url, data) {
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+  if(!r.ok) { const t=await r.text(); throw new Error(`HTTP ${r.status}: ${t}`); }
+  return r.json();
+}
+async function get(url) {
+  const r = await fetch(url);
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+</script>
+</body>
+</html>
