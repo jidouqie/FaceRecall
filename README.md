@@ -40,6 +40,8 @@ cd FaceRecall
 
 **配置 API**：点右上角"⚙️ 设置"，填入你的 API Base URL 和 API Key。支持 OpenAI 官方接口及任何兼容接口（如中转网关）。
 
+> **推荐模型**：图像模型填 `gpt-image-2`，引导模型填 `gpt-4o`。`gpt-image-2` 支持图生图迭代，是目前效果最好的选择。
+
 ---
 
 ## 界面说明
@@ -82,6 +84,25 @@ cd FaceRecall
 - 请遵守当地法律法规，尊重个人隐私
 - 仅限民间寻人、记忆辅助等合法用途
 - 所有数据本地存储，不上传任何内容
+
+---
+
+## 联系作者
+
+扫码联系作者获取支持，或关注微信公众号 / 抖音 **吉豆茄** 获取最新动态：
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="assets/qr-wecom.jpg" width="160" /><br/>
+      <sub>企业微信（联系作者）</sub>
+    </td>
+    <td align="center">
+      <img src="assets/qr-wxmp.jpg" width="160" /><br/>
+      <sub>微信公众号 · 吉豆茄</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
