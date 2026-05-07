@@ -28,7 +28,7 @@
 **环境要求**：Python 3.10+，需要能访问 OpenAI 兼容图像 API 的 Key
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/FaceRecall.git
+git clone https://github.com/jidouqie/FaceRecall.git
 cd FaceRecall
 ./run.sh          # macOS / Linux
 # run.bat         # Windows
