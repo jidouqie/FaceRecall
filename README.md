@@ -25,15 +25,26 @@
 
 ## Demo
 
-> ⚠️ 以下为实测效果截图，**仅供参考**。AI 画像质量受目击者描述精确度影响，实际效果因人因案例而异。
+> ⚠️ 以下为实测效果，**仅供参考**。AI 画像质量受目击者描述精确度影响，实际效果因人因案例而异。
 
-**界面 & 生成结果（线稿画像）：**
+**还原对比（左：AI 生成线稿 / 右：参考原图）：**
 
-![FaceRecall 使用界面](assets/demo-ui.png)
+<table>
+  <tr>
+    <td align="center">
+      <img src="assets/demo-sketch.png" width="300" /><br/>
+      <sub>AI 生成线稿</sub>
+    </td>
+    <td align="center">
+      <img src="assets/demo-ref.jpg" width="300" /><br/>
+      <sub>参考原图</sub>
+    </td>
+  </tr>
+</table>
 
-**参考原图（目击者描述的对象）：**
+**操作界面：**
 
-<img src="assets/demo-ref.jpg" width="280" />
+![FaceRecall 操作界面](assets/demo-ui.png)
 
 ---
 
