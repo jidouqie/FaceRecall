@@ -8,7 +8,7 @@ from ._client import get_client, llm_model, read_prompt
 from .feature_matrix import FeatureMatrix
 
 
-MIN_GUIDE_ANSWERS = 18
+MIN_GUIDE_ANSWERS = 20
 MAX_GUIDE_ANSWERS = 30
 
 
