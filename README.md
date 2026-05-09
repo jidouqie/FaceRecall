@@ -36,7 +36,7 @@
       <sub>AI 生成线稿</sub>
     </td>
     <td align="center">
-      <img src="assets/demo-ref.jpg" width="300" /><br/>
+      <img src="assets/demo-ref.png" width="300" /><br/>
       <sub>参考原图</sub>
     </td>
   </tr>
